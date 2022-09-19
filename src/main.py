@@ -1,5 +1,7 @@
 # Imports
-from tkinter import Tk, Canvas, Menu, Frame, Listbox, Label, Scrollbar, Button, Entry, Text, messagebox
+import json
+from datetime import  datetime
+from tkinter import Tk, Canvas, Menu, Frame, Listbox, Label, Scrollbar, Button, Entry, Text, messagebox, filedialog
 from program_data.prompts import WordAdder, WordEditor
 
 # Horizontal Line function
@@ -21,7 +23,7 @@ class App(Tk):
         # Initialization
         super().__init__()
         self.title("Pack Editor - Untitled")
-        self.geometry("400x390")
+        self.geometry("400x470")
         self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", self.handle_exit)
         self.opened_window_parameters = {
@@ -38,6 +40,13 @@ class App(Tk):
         # Making menu bar
         self.make_menu()
         self.make_widgets()
+
+    def format_date(self):
+        date = datetime.now()
+        day = str(date.day) if date.day > 9 else f"0{date.day}"
+        month = str(date.month) if date.month > 9 else f"0{date.month}"
+        year = str(date.year)[-2:]
+        return f"{day}.{month}.{year}"
 
     def make_widgets(self):
         # Introduction
@@ -77,7 +86,6 @@ class App(Tk):
         self.entries_listbox.config(yscrollcommand=self.entries_listbox_scrollbar.set)
         self.entries_listbox_scrollbar.config(command=self.entries_listbox.yview)
 
-
         # Control panel
         self.control_panel_introduction_label = Label(self.buttons_frame, text="Commands:")
         self.control_panel_introduction_label.pack(pady=5)
@@ -94,44 +102,55 @@ class App(Tk):
         self.save_button = Button(self.buttons_frame, text="Save", width=25, command=self.validate_save)
         self.save_button.pack(pady=5)
 
-        self.open_button = Button(self.buttons_frame, text="Open", width=25)
+        self.open_button = Button(self.buttons_frame, text="Open", width=25, command=self.open_file)
         self.open_button.pack(pady=5)
 
-        # Metadata
+        # Metadata: Author
+        self.author_frame = Frame(self.bottom_widgets_frame)
+        self.author_frame.pack()
+
+        self.author_label = Label(self.author_frame, text="Author:")
+        self.author_label.pack()
+
+        self.author_entry = Entry(self.author_frame, width=20)
+        self.author_entry.pack()
+
+        # Metadata: Title
         self.title_frame = Frame(self.bottom_widgets_frame)
         self.title_frame.pack()
 
         self.title_label = Label(self.title_frame, text="Title:")
-        self.title_label.pack(side="left", padx=14)
+        self.title_label.pack()
 
         self.title_entry = Entry(self.title_frame, width=52)
-        self.title_entry.pack(side="right")
+        self.title_entry.pack()
 
+        # Metadata: Description
         self.description_frame = Frame(self.bottom_widgets_frame)
         self.description_frame.pack()
 
         self.description_label = Label(self.description_frame, text="Description:")
-        self.description_label.pack(side="left", padx=14)
+        self.description_label.pack()
 
         self.description_entry = Text(self.description_frame, width=53, height=3)
-        self.description_entry.pack(side="right", padx=14)
+        self.description_entry.pack()
 
     def make_menu(self):
         self.master_menu = Menu(self)
 
         # Commands meny
         self.commands_menu = Menu(self.master_menu, tearoff=0)
-        self.commands_menu.add_command(label="Add")
-        self.commands_menu.add_command(label="Delete")
-        self.commands_menu.add_command(label="Edit")
+        self.commands_menu.add_command(label="Add", command=self.make_word_adder)
+        self.commands_menu.add_command(label="Delete", command=self.delete_selected)
+        self.commands_menu.add_command(label="Edit", command=self.make_word_editor)
         self.master_menu.add_cascade(label="Commands", menu=self.commands_menu)
 
         # Pack menu
         self.pack_menu = Menu(self.master_menu, tearoff=0)
-        self.pack_menu.add_command(label="Open")
-        self.pack_menu.add_command(label="Save")
+        self.pack_menu.add_command(label="Open", command=self.open_file)
+        self.pack_menu.add_command(label="Save", command=self.validate_save)
         self.pack_menu.add_separator()
-        self.pack_menu.add_command(label="Reset")
+        self.pack_menu.add_command(label="Reset", command=self.reset)
         self.pack_menu.add_command(label="Close")
         self.pack_menu.add_separator()
         self.pack_menu.add_command(label="Deploy")
@@ -174,36 +193,107 @@ class App(Tk):
 
     def validate_save(self):
         # Getting variables
-        title = self.title_entry.get()
-        description = self.description_entry.get("1.0", "end")
+        title = self.title_entry.get().strip()
+        author = self.author_entry.get().strip()
+        description = self.description_entry.get("1.0", "end").strip()
 
         # Checking lengths
         if self.word_amount < 10:
             messagebox.showerror("Unable to save", "Please enter at least 10 words.")
             return
-        elif len(title.strip()) == 0:
+        elif len(title) == 0:
             messagebox.showerror("Unable to save", "Please enter a title.")
             return
-        elif len(title.strip()) > 30:
+        elif len(author) == 0:
+            messagebox.showerror("Unable to save", "Please enter the author name.")
+        elif len(title) > 30:
             messagebox.showerror("Unable to save", "Your title is way too long. Please enter one that is less than 30 characters.")
+            return
+        elif len(author) > 20:
+            messagebox.showerror("Unable to save", "Please enter a shorter author name (less than 20 characters).")
             return
         elif len(description.strip()) == 0:
             messagebox.showerror("Unable to save", "Please enter a description.")
             return
-        elif len(description.get().strip()) > 100:
-            messagebox.showerror("Unable to save", "Please enter a shorter description (less than 100 characters)")
+        elif len(description.strip()) > 100:
+            messagebox.showerror("Unable to save", "Please enter a shorter description (less than 100 characters).")
             return
 
         # If the above tests pass, begin save process
         self.save_to_file()
+
+    def validate_file(self, file_data):
+        # Checking if the needed keys exist
+        for key in ["title", "description", "creator", "dateCreated", "words"]:
+            if key not in file_data:
+                return False
+        # Otherwise... (this will also allow modified files that have extra keys)
+        return True
+
+    def open_file(self):
+        # Querying the file location
+        file_path = filedialog.askopenfilename(defaultextension=".json", filetypes=(("JSON file", "*.json"),))
+        file_data = json.load(open(file_path, "r"))
+
+        # Making sure the operation wasn't cancelled
+        if file_path == "":
+            return
+
+        # Validating the file
+        if self.validate_file(file_data):
+            title = file_data["title"]
+            author = file_data["creator"]
+            description = file_data["description"]
+            words = file_data["words"]
+
+            # Adding author
+            self.author_entry.delete(0, "end")
+            self.author_entry.insert(0, author)
+
+            # Adding title
+            self.title_entry.delete(0, "end")
+            self.title_entry.insert(0, title)
+
+            # Adding description
+            self.description_entry.delete(1.0, "end")
+            self.description_entry.insert("end", description)
+
+            # Getting words
+            self.entries_listbox.delete(0, "end")
+            for word in words:
+                self.entries_listbox.insert("end", word)
+
+            # Updating word amount
+            self.word_amount = len(words)
+            self.update_word_amount()
+
+        else:
+            messagebox.showerror("Invalid file", "The file is invalid. Are you sure it's a pack?")
 
     def save_to_file(self):
         # Getting dictionary data
         data = {
             "title": self.title_entry.get().strip(),
             "description": self.description_entry.get("1.0", "end").strip(),
+            "creator": self.author_entry.get(),
+            "dateCreated": self.format_date(),
             "words": self.entries_listbox.get(0, "end")
         }
+
+        # Getting file path
+        file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=(
+            ("JSON file", "*.json"),
+        ))
+
+        if file_path == "":
+            return  # operation cancelled
+
+        # Dumping + notifying
+        json.dump(data, open(file_path, "w"))
+        messagebox.showinfo("Success", "Pack saved successfully.")
+
+    def reset(self):
+        pass
 
     def handle_exit(self):
         self.quit()
