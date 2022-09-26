@@ -1,5 +1,6 @@
 # Imports
 import json
+import webbrowser
 from datetime import  datetime
 from tkinter import Tk, Canvas, Menu, Frame, Listbox, Label, Scrollbar, Button, Entry, Text, messagebox, filedialog
 from program_data.prompts import WordAdder, WordEditor
@@ -22,7 +23,8 @@ class App(Tk):
     def __init__(self):
         # Initialization
         super().__init__()
-        self.title("Pack Editor - Untitled")
+        self.title("Snakle Pack Editor - Untitled")
+        self.pack_title = None
         self.geometry("400x470")
         self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", self.handle_exit)
@@ -36,6 +38,7 @@ class App(Tk):
         self.word_amount = 0
         self.title_length = 0
         self.description_length = 0
+        self.up_to_date = True
 
         # Making menu bar
         self.make_menu()
@@ -132,7 +135,7 @@ class App(Tk):
         self.description_label = Label(self.description_frame, text="Description:")
         self.description_label.pack()
 
-        self.description_entry = Text(self.description_frame, width=53, height=3)
+        self.description_entry = Text(self.description_frame, width=53, height=3, font="Arial 9")
         self.description_entry.pack()
 
     def make_menu(self):
@@ -151,9 +154,8 @@ class App(Tk):
         self.pack_menu.add_command(label="Save", command=self.validate_save)
         self.pack_menu.add_separator()
         self.pack_menu.add_command(label="Reset", command=self.reset)
-        self.pack_menu.add_command(label="Close")
         self.pack_menu.add_separator()
-        self.pack_menu.add_command(label="Deploy")
+        self.pack_menu.add_command(label="Deploy", command=self.deploy)
         self.master_menu.add_cascade(label="Pack", menu=self.pack_menu)
 
         # About menu
@@ -161,7 +163,7 @@ class App(Tk):
         self.about_menu.add_command(label="About Snakle Pack Editor")
         self.about_menu.add_command(label="Help")
         self.about_menu.add_separator()
-        self.about_menu.add_command(label="Open Repository")
+        self.about_menu.add_command(label="Open Repository", command=lambda: webbrowser.open_new_tab("https://github.com/R1DF/Snakle-Pack-Editor"))
         self.about_menu.add_command(label="Version", accelerator="1.0.0")
         self.master_menu.add_cascade(label="About", menu=self.about_menu)
 
@@ -187,39 +189,50 @@ class App(Tk):
             self.word_amount -= 1
             self.entries_listbox.delete(self.entries_listbox.curselection())
             self.update_word_amount()
+            self.switch_updated_status(False)
 
     def update_word_amount(self):
         self.entries_intro_label.config(text=f"Words ({self.word_amount}/500):")
 
-    def validate_save(self):
+    def can_save(self):
         # Getting variables
         title = self.title_entry.get().strip()
         author = self.author_entry.get().strip()
         description = self.description_entry.get("1.0", "end").strip()
 
-        # Checking lengths
+        # Tests
         if self.word_amount < 10:
-            messagebox.showerror("Unable to save", "Please enter at least 10 words.")
-            return
+            return False, "Please enter at least 10 words."
         elif len(title) == 0:
-            messagebox.showerror("Unable to save", "Please enter a title.")
-            return
+            return False, "Please enter a title."
         elif len(author) == 0:
-            messagebox.showerror("Unable to save", "Please enter the author name.")
+            return False, "Please enter the author name."
         elif len(title) > 30:
-            messagebox.showerror("Unable to save", "Your title is way too long. Please enter one that is less than 30 characters.")
-            return
+            return False, "Your title is way too long. Please enter one that is less than 30 characters."
         elif len(author) > 20:
-            messagebox.showerror("Unable to save", "Please enter a shorter author name (less than 20 characters).")
-            return
+            return False, "Please enter a shorter author name (less than 20 characters)."
         elif len(description.strip()) == 0:
-            messagebox.showerror("Unable to save", "Please enter a description.")
-            return
+            return False, "Please enter a description."
         elif len(description.strip()) > 100:
-            messagebox.showerror("Unable to save", "Please enter a shorter description (less than 100 characters).")
-            return
+            return False, "Please enter a shorter description (less than 100 characters)."
 
-        # If the above tests pass, begin save process
+        # If tests were passed
+        return True, None
+
+    def validate_save(self, should_skip=False):
+        # Getting variables
+        title = self.title_entry.get().strip()
+        author = self.author_entry.get().strip()
+        description = self.description_entry.get("1.0", "end").strip()
+
+        # Checking
+        if should_skip:
+            test = self.can_save()
+            if not test[0]:
+                messagebox.showerror("Unable to save", test[1])
+                return
+
+        # If tests pass, begin save process
         self.save_to_file()
 
     def validate_file(self, file_data):
@@ -231,13 +244,19 @@ class App(Tk):
         return True
 
     def open_file(self):
+        # Checking if the file is updated
+        if (not self.up_to_date) and self.can_save()[0]:
+            if messagebox.askyesno("Save?", "It appears you haven't saved your latest changes! Would you like to save them now?"):
+                self.validate_save(True)
+
         # Querying the file location
         file_path = filedialog.askopenfilename(defaultextension=".json", filetypes=(("JSON file", "*.json"),))
-        file_data = json.load(open(file_path, "r"))
 
         # Making sure the operation wasn't cancelled
         if file_path == "":
             return
+
+        file_data = json.load(open(file_path, "r"))
 
         # Validating the file
         if self.validate_file(file_data):
@@ -245,6 +264,10 @@ class App(Tk):
             author = file_data["creator"]
             description = file_data["description"]
             words = file_data["words"]
+
+            # Updating title
+            self.pack_title = title
+            self.title(f"Snakle Pack Editor - {self.pack_title}")
 
             # Adding author
             self.author_entry.delete(0, "end")
@@ -288,15 +311,72 @@ class App(Tk):
         if file_path == "":
             return  # operation cancelled
 
-        # Dumping + notifying
+        # Dumping + updating + notifying
         json.dump(data, open(file_path, "w"))
+        self.switch_updated_status(True)
         messagebox.showinfo("Success", "Pack saved successfully.")
 
-    def reset(self):
-        pass
+    def reset(self, already_confirm=False):
+        # Checking if everything is already empty
+        creator = self.author_entry.get().strip()
+        title = self.title_entry.get().strip()
+        description = self.description_entry.get(1.0, "end").strip()
+        if self.entries_listbox.get(0, "end") == () and creator == title == description == "" and self.pack_title is None:
+            messagebox.showerror("Unable to reset", "There's already nothing!")
+            return
+
+        # Confirmation
+        if not messagebox.askyesno("Reset?", "Clear all pack contents from the program?"):
+            return
+
+        # Changing title
+        self.pack_title = None
+        self.title("Snakle Pack Editor - Untitled")
+
+        # Removing all words
+        self.entries_listbox.delete(0, "end")
+        self.entries_intro_label.config(text="Words (0/500):")
+
+        # Removing metadata + updating
+        self.author_entry.delete(0, "end")
+        self.title_entry.delete(0, "end")
+        self.description_entry.delete(1.0, "end")
+        self.switch_updated_status(False)
+
+    def deploy(self):
+        # Pass checking
+        test = self.can_save()
+
+        if not test[0]:
+            messagebox.showerror("Unable to deploy", test[1])
+            return
+
+        if not self.up_to_date:
+            messagebox.showerror("Unable to deploy", "Please save the pack before deploying!")
+
+
+
+    def switch_updated_status(self, is_up_to_date, keep_asterisk=True):
+        if is_up_to_date:
+            self.up_to_date = True
+            self.title(f"Snakle Pack Editor - {self.pack_title if self.pack_title is not None else 'Untitled'}")
+        else:
+            self.up_to_date = False
+            self.title(
+                f"Snakle Pack Editor - {self.pack_title if self.pack_title is not None else 'Untitled'}{'*' if keep_asterisk else ''}")
+
+    def toggle_updated_status(self, keep_asterisk=True):
+        if self.up_to_date:
+            self.switch_updated_status(False, keep_asterisk)
+        else:
+            self.switch_updated_status(True)
 
     def handle_exit(self):
+        if (not self.up_to_date) and self.can_save()[0]:
+            if messagebox.askyesno("Quit?", "You haven't saved your changes. Do you want to save them before quitting?"):
+                self.validate_save(True)
         self.quit()
+
 
 # Creating application
 app = App()
