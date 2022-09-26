@@ -38,6 +38,7 @@ class WordAdder(Toplevel):
             self.master.word_amount += 1
             self.master.entries_listbox.insert("end", self.word_name_entry.get().strip().upper())
             self.master.update_word_amount()
+            self.master.switch_updated_status(False)
             self.handle_exit()
 
     def handle_exit(self):
@@ -86,6 +87,7 @@ class WordEditor(Toplevel):
         else:
             self.master.entries_listbox.delete(self.word_index)
             self.master.entries_listbox.insert(self.word_index, self.word_name_entry.get().strip().upper())
+            self.master.switch_updated_status(False)
             self.handle_exit()
 
     def handle_exit(self):
