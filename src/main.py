@@ -2,10 +2,10 @@
 import json
 import webbrowser
 from datetime import  datetime
-from tkinter import Tk, Canvas, Menu, Frame, Listbox, Label, Scrollbar, Button, Entry, Text, messagebox, filedialog
-from program_data.prompts import WordAdder, WordEditor
+from tkinter import Tk, Canvas, Menu, Frame, Listbox, Label, Scrollbar, Button, Entry, Text, StringVar, messagebox, filedialog
+from program_data.prompts import WordAdder, WordEditor, InfoWindow, DeployWindow
 
-# Horizontal Line function
+# Horizontal Line class
 class HorizontalLine:
     def __init__(self, master):
         # Initialization
@@ -31,14 +31,23 @@ class App(Tk):
         self.opened_window_parameters = {
             "add": False,
             "edit": False,
-            "save": False
+            "save": False,
+            "info": False,
+            "deploy": False
         }
         self.word_adder = None
         self.word_editor = None
+        self.info_window = None
         self.word_amount = 0
         self.title_length = 0
         self.description_length = 0
         self.up_to_date = True
+        self.version = "v1.0.0"
+        self.variables_since_last_save = {
+            "author": "",
+            "title": ""
+        }
+        self.valid_trace_origin = True
 
         # Making menu bar
         self.make_menu()
@@ -102,11 +111,16 @@ class App(Tk):
         self.edit_button = Button(self.buttons_frame, text="Edit", width=25, command=self.make_word_editor)
         self.edit_button.pack(pady=5)
 
-        self.save_button = Button(self.buttons_frame, text="Save", width=25, command=self.validate_save)
+        self.save_button = Button(self.buttons_frame, text="Save", width=25, command=lambda: self.query_save(True))
         self.save_button.pack(pady=5)
 
         self.open_button = Button(self.buttons_frame, text="Open", width=25, command=self.open_file)
         self.open_button.pack(pady=5)
+
+        # Metadata: StringVars
+        self.author_stringvar = StringVar()
+        self.title_stringvar = StringVar()
+        # No Text StringVar sadly
 
         # Metadata: Author
         self.author_frame = Frame(self.bottom_widgets_frame)
@@ -115,7 +129,7 @@ class App(Tk):
         self.author_label = Label(self.author_frame, text="Author:")
         self.author_label.pack()
 
-        self.author_entry = Entry(self.author_frame, width=20)
+        self.author_entry = Entry(self.author_frame, width=20, textvariable=self.author_stringvar)
         self.author_entry.pack()
 
         # Metadata: Title
@@ -125,7 +139,7 @@ class App(Tk):
         self.title_label = Label(self.title_frame, text="Title:")
         self.title_label.pack()
 
-        self.title_entry = Entry(self.title_frame, width=52)
+        self.title_entry = Entry(self.title_frame, width=52, textvariable=self.title_stringvar)
         self.title_entry.pack()
 
         # Metadata: Description
@@ -137,6 +151,10 @@ class App(Tk):
 
         self.description_entry = Text(self.description_frame, width=53, height=3, font="Arial 9")
         self.description_entry.pack()
+
+        # Tracing
+        self.author_stringvar.trace_add("write", lambda x, y, z: self.trace_entry())
+        self.title_stringvar.trace_add("write", lambda x, y, z: self.trace_entry())
 
     def make_menu(self):
         self.master_menu = Menu(self)
@@ -151,7 +169,7 @@ class App(Tk):
         # Pack menu
         self.pack_menu = Menu(self.master_menu, tearoff=0)
         self.pack_menu.add_command(label="Open", command=self.open_file)
-        self.pack_menu.add_command(label="Save", command=self.validate_save)
+        self.pack_menu.add_command(label="Save", command=self.query_save)
         self.pack_menu.add_separator()
         self.pack_menu.add_command(label="Reset", command=self.reset)
         self.pack_menu.add_separator()
@@ -160,15 +178,22 @@ class App(Tk):
 
         # About menu
         self.about_menu = Menu(self.master_menu, tearoff=0)
-        self.about_menu.add_command(label="About Snakle Pack Editor")
+        self.about_menu.add_command(label="About Snakle Pack Editor", command=self.make_info_window)
         self.about_menu.add_command(label="Help")
         self.about_menu.add_separator()
         self.about_menu.add_command(label="Open Repository", command=lambda: webbrowser.open_new_tab("https://github.com/R1DF/Snakle-Pack-Editor"))
-        self.about_menu.add_command(label="Version", accelerator="1.0.0")
+        self.about_menu.add_command(label="Version", accelerator=self.version)
         self.master_menu.add_cascade(label="About", menu=self.about_menu)
 
         # Adding the menu to self
         self.config(menu=self.master_menu)
+
+    def trace_entry(self):  # valid_trace_origin used so that open file can't trigger it
+        if not self.valid_trace_origin:
+            return
+
+        if self.author_stringvar.get() != self.variables_since_last_save["author"] or self.title_stringvar.get() != self.variables_since_last_save["author"]:
+            self.switch_updated_status(False)
 
     def make_word_adder(self):
         if not self.opened_window_parameters["add"]:
@@ -181,6 +206,10 @@ class App(Tk):
 
         if not self.opened_window_parameters["edit"]:
             self.font_editor = WordEditor(self, self.entries_listbox.get(self.entries_listbox.curselection()), self.entries_listbox.curselection()[0])
+
+    def make_info_window(self):
+        if not self.opened_window_parameters["info"]:
+            self.info_window = InfoWindow(self)
 
     def delete_selected(self):
         if self.entries_listbox.curselection() == ():
@@ -198,7 +227,7 @@ class App(Tk):
         # Getting variables
         title = self.title_entry.get().strip()
         author = self.author_entry.get().strip()
-        description = self.description_entry.get("1.0", "end").strip()
+        description = self.description_entry.get(1.0, "end").strip()
 
         # Tests
         if self.word_amount < 10:
@@ -219,14 +248,9 @@ class App(Tk):
         # If tests were passed
         return True, None
 
-    def validate_save(self, should_skip=False):
-        # Getting variables
-        title = self.title_entry.get().strip()
-        author = self.author_entry.get().strip()
-        description = self.description_entry.get("1.0", "end").strip()
-
+    def query_save(self, check=False):
         # Checking
-        if should_skip:
+        if check:
             test = self.can_save()
             if not test[0]:
                 messagebox.showerror("Unable to save", test[1])
@@ -247,58 +271,74 @@ class App(Tk):
         # Checking if the file is updated
         if (not self.up_to_date) and self.can_save()[0]:
             if messagebox.askyesno("Save?", "It appears you haven't saved your latest changes! Would you like to save them now?"):
-                self.validate_save(True)
+                self.query_save(True)
 
         # Querying the file location
         file_path = filedialog.askopenfilename(defaultextension=".json", filetypes=(("JSON file", "*.json"),))
 
-        # Making sure the operation wasn't cancelled
+        # Making sure the operation wasn't cancelled and the file is decodable
         if file_path == "":
             return
 
-        file_data = json.load(open(file_path, "r"))
+        try:
+            file_data = json.load(open(file_path, "r"))
+        except UnicodeDecodeError:
+            messagebox.showerror("Invalid file", "This file is unreadable.")
+            return
 
         # Validating the file
         if self.validate_file(file_data):
-            title = file_data["title"]
-            author = file_data["creator"]
-            description = file_data["description"]
-            words = file_data["words"]
+            try:
+                author = file_data["creator"]
+                title = file_data["title"]
+                description = file_data["description"]
+                words = file_data["words"]
 
-            # Updating title
-            self.pack_title = title
-            self.title(f"Snakle Pack Editor - {self.pack_title}")
+                # Updating title
+                self.pack_title = title
+                self.title(f"Snakle Pack Editor - {self.pack_title}")
 
-            # Adding author
-            self.author_entry.delete(0, "end")
-            self.author_entry.insert(0, author)
+                # Adding author + briefly blocking trace
+                self.valid_trace_origin = False
+                self.author_entry.delete(0, "end")
+                self.author_entry.insert(0, author)
 
-            # Adding title
-            self.title_entry.delete(0, "end")
-            self.title_entry.insert(0, title)
+                # Adding title
+                self.title_entry.delete(0, "end")
+                self.title_entry.insert(0, title)
 
-            # Adding description
-            self.description_entry.delete(1.0, "end")
-            self.description_entry.insert("end", description)
+                # Adding description
+                self.description_entry.delete(1.0, "end")
+                self.description_entry.insert("end", description)
 
-            # Getting words
-            self.entries_listbox.delete(0, "end")
-            for word in words:
-                self.entries_listbox.insert("end", word)
+                # Getting words
+                self.entries_listbox.delete(0, "end")
+                for word in words:
+                    self.entries_listbox.insert("end", word)
 
-            # Updating word amount
-            self.word_amount = len(words)
-            self.update_word_amount()
+                # Updating
+                self.word_amount = len(words)
+                self.update_word_amount()
+                self.variables_since_last_save = {"author": author, "title": title}
+                self.valid_trace_origin = True
+
+            except json.JSONDecodeError:
+                messagebox.showerror("Invalid file", "This file is invalid. Are you sure it's a pack?")
 
         else:
             messagebox.showerror("Invalid file", "The file is invalid. Are you sure it's a pack?")
 
     def save_to_file(self):
+        # To not call .get() twice
+        author = self.author_entry.get()
+        title = self.title_entry.get().strip()
+        description = self.description_entry.get(1.0, "end").strip()
+
         # Getting dictionary data
         data = {
-            "title": self.title_entry.get().strip(),
-            "description": self.description_entry.get("1.0", "end").strip(),
-            "creator": self.author_entry.get(),
+            "title": title,
+            "description": description,
+            "creator": author,
             "dateCreated": self.format_date(),
             "words": self.entries_listbox.get(0, "end")
         }
@@ -311,8 +351,12 @@ class App(Tk):
         if file_path == "":
             return  # operation cancelled
 
+        # Configuring
+        self.variables_since_last_save = {"author": author, "title": title}
+
         # Dumping + updating + notifying
         json.dump(data, open(file_path, "w"))
+        self.pack_title = title
         self.switch_updated_status(True)
         messagebox.showinfo("Success", "Pack saved successfully.")
 
@@ -329,7 +373,8 @@ class App(Tk):
         if not messagebox.askyesno("Reset?", "Clear all pack contents from the program?"):
             return
 
-        # Changing title
+        # Changing title + blocking trace
+        self.valid_trace_origin = False
         self.pack_title = None
         self.title("Snakle Pack Editor - Untitled")
 
@@ -341,7 +386,8 @@ class App(Tk):
         self.author_entry.delete(0, "end")
         self.title_entry.delete(0, "end")
         self.description_entry.delete(1.0, "end")
-        self.switch_updated_status(False)
+        self.switch_updated_status(True)
+        self.valid_trace_origin = True
 
     def deploy(self):
         # Pass checking
@@ -353,7 +399,11 @@ class App(Tk):
 
         if not self.up_to_date:
             messagebox.showerror("Unable to deploy", "Please save the pack before deploying!")
+            return
 
+        # Deployment
+        if not self.opened_window_parameters["deploy"]:
+            self.deploy_window = DeployWindow(self)
 
 
     def switch_updated_status(self, is_up_to_date, keep_asterisk=True):
@@ -374,7 +424,7 @@ class App(Tk):
     def handle_exit(self):
         if (not self.up_to_date) and self.can_save()[0]:
             if messagebox.askyesno("Quit?", "You haven't saved your changes. Do you want to save them before quitting?"):
-                self.validate_save(True)
+                self.query_save(True)
         self.quit()
 
 
