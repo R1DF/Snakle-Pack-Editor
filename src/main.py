@@ -1,9 +1,10 @@
 # Imports
 import json
+import os
 import webbrowser
 from datetime import  datetime
-from tkinter import Tk, Canvas, Menu, Frame, Listbox, Label, Scrollbar, Button, Entry, Text, StringVar, messagebox, filedialog
-from program_data.prompts import WordAdder, WordEditor, InfoWindow, DeployWindow
+from tkinter import Tk, Canvas, Menu, Frame, Listbox, Label, Scrollbar, Button, Entry, Text, StringVar, PhotoImage, messagebox, filedialog
+from program_data.prompts import WordAdder, WordEditor, InfoWindow, DeployWindow, HelpWindow
 
 # Horizontal Line class
 class HorizontalLine:
@@ -33,11 +34,13 @@ class App(Tk):
             "edit": False,
             "save": False,
             "info": False,
-            "deploy": False
+            "deploy": False,
+            "help": False
         }
         self.word_adder = None
         self.word_editor = None
         self.info_window = None
+        self.help_window = None
         self.word_amount = 0
         self.title_length = 0
         self.description_length = 0
@@ -52,6 +55,20 @@ class App(Tk):
         # Making menu bar
         self.make_menu()
         self.make_widgets()
+
+        # Tracing
+        self.author_stringvar.trace_add("write", lambda x, y, z: self.trace_entry())
+        self.title_stringvar.trace_add("write", lambda x, y, z: self.trace_entry())
+
+        # Binding
+        self.bind("<Control-n>", lambda x: self.make_word_adder())
+        self.bind("<Delete>", lambda x: self.delete_selected())
+        self.bind("<Control-e>", lambda x: self.make_word_editor())
+        self.bind("<Control-o>", lambda x: self.open_file())
+        self.bind("<Control-s>", lambda x: self.query_save(True))
+
+        # Icon
+        self.iconphoto(True, PhotoImage(file=os.getcwd() + "\\program_data\\icon.png"))
 
     def format_date(self):
         date = datetime.now()
@@ -152,24 +169,20 @@ class App(Tk):
         self.description_entry = Text(self.description_frame, width=53, height=3, font="Arial 9")
         self.description_entry.pack()
 
-        # Tracing
-        self.author_stringvar.trace_add("write", lambda x, y, z: self.trace_entry())
-        self.title_stringvar.trace_add("write", lambda x, y, z: self.trace_entry())
-
     def make_menu(self):
         self.master_menu = Menu(self)
 
         # Commands meny
         self.commands_menu = Menu(self.master_menu, tearoff=0)
-        self.commands_menu.add_command(label="Add", command=self.make_word_adder)
-        self.commands_menu.add_command(label="Delete", command=self.delete_selected)
-        self.commands_menu.add_command(label="Edit", command=self.make_word_editor)
+        self.commands_menu.add_command(label="Add", command=self.make_word_adder, accelerator="Ctrl+N")
+        self.commands_menu.add_command(label="Delete", command=self.delete_selected, accelerator="Delete")
+        self.commands_menu.add_command(label="Edit", command=self.make_word_editor, accelerator="Ctrl+E")
         self.master_menu.add_cascade(label="Commands", menu=self.commands_menu)
 
         # Pack menu
         self.pack_menu = Menu(self.master_menu, tearoff=0)
-        self.pack_menu.add_command(label="Open", command=self.open_file)
-        self.pack_menu.add_command(label="Save", command=self.query_save)
+        self.pack_menu.add_command(label="Open", command=self.open_file, accelerator="Ctrl+O")
+        self.pack_menu.add_command(label="Save", command=self.query_save, accelerator="Ctrl+S")
         self.pack_menu.add_separator()
         self.pack_menu.add_command(label="Reset", command=self.reset)
         self.pack_menu.add_separator()
@@ -179,7 +192,7 @@ class App(Tk):
         # About menu
         self.about_menu = Menu(self.master_menu, tearoff=0)
         self.about_menu.add_command(label="About Snakle Pack Editor", command=self.make_info_window)
-        self.about_menu.add_command(label="Help")
+        self.about_menu.add_command(label="Help", command=self.make_help_window)
         self.about_menu.add_separator()
         self.about_menu.add_command(label="Open Repository", command=lambda: webbrowser.open_new_tab("https://github.com/R1DF/Snakle-Pack-Editor"))
         self.about_menu.add_command(label="Version", accelerator=self.version)
@@ -210,6 +223,10 @@ class App(Tk):
     def make_info_window(self):
         if not self.opened_window_parameters["info"]:
             self.info_window = InfoWindow(self)
+
+    def make_help_window(self):
+        if not self.opened_window_parameters["help"]:
+            self.help_window = HelpWindow(self)
 
     def delete_selected(self):
         if self.entries_listbox.curselection() == ():
