@@ -2,7 +2,7 @@
 import os
 import webbrowser
 import json
-from tkinter import Toplevel, Frame, Label, Entry, Button, messagebox, filedialog, PhotoImage
+from tkinter import Toplevel, Frame, Label, Entry, Button, ttk, StringVar, messagebox, filedialog, PhotoImage, Text
 
 # Making the adder window
 class WordAdder(Toplevel):
@@ -85,7 +85,7 @@ class WordEditor(Toplevel):
             messagebox.showerror("Empty input", "Please enter a word.")
         elif len(self.word_name_entry.get().strip().lower()) != 5:
             messagebox.showerror("Invalid word", "The entered word must be 5 letters long.")
-        elif (self.word_name_entry.get().strip().upper() in self.master.entries_listbox.get(0, "end")) and (self.self.word_name_entry.get().strip().upper() != self.word_to_edit):
+        elif (self.word_name_entry.get().strip().upper() in self.master.entries_listbox.get(0, "end")) and (self.word_name_entry.get().strip().upper() != self.word_to_edit):
             messagebox.showerror("Already exists", "The entered word has already been entered.")
         else:
             self.master.entries_listbox.delete(self.word_index)
@@ -201,7 +201,7 @@ class DeployWindow(Toplevel):
         self.deploy_button.pack()
 
     def deploy(self):
-        # Checking if game folder is set, no title or a file already exists
+        # Entry validation
         if not self.has_game_folder_set:
             messagebox.showerror("Unable to deploy", "Please enter a directory.")
             return
@@ -210,9 +210,14 @@ class DeployWindow(Toplevel):
             messagebox.showerror("Unable to deploy", "Please enter a name for the file.")
             return
 
-        if os.path.exists(f"{self.game_directory_entry.get()}\\{self.file_name_entry.get()}.json"):
+        elif not os.path.exists(f"{self.game_directory_entry.get()}\\packs\\"):  # If the path is invalid
+            messagebox.showerror("Invalid folder", "The folder either doesn't contain the game or the game is damaged.")
+            return
+
+        if os.path.exists(f"{self.game_directory_entry.get()}\\packs\\{self.file_name_entry.get()}.json"): # Overwrite prompt
             if not messagebox.askyesno("Pack already exists", "A pack in the same folder and with the same name already exists. Replace it?"):
                 return
+
 
         # Finding path
         directory = self.game_directory_entry.get()
@@ -222,7 +227,7 @@ class DeployWindow(Toplevel):
             "creator": self.master.author_entry.get().strip(),
             "dateCreated": self.master.format_date(),
             "words": self.master.entries_listbox.get(0, "end")
-        }, open(f"{directory}\\{self.file_name_entry.get()}.json", "w"))
+        }, open(f"{directory}\\packs\\{self.file_name_entry.get()}.json", "w"))
         messagebox.showinfo("Success", "Deployed to the folder.")
         self.handle_exit()
 
@@ -257,3 +262,74 @@ class DeployWindow(Toplevel):
     def handle_exit(self):
         self.master.opened_window_parameters["deploy"] = False
         self.destroy()
+
+
+# Helper window
+class HelpWindow(Toplevel):
+    def __init__(self, master):
+        # Initialization
+        self.master = master
+        Toplevel.__init__(self, self.master)
+        self.title("Help")
+        self.geometry("700x310")
+        self.master.opened_window_parameters["help"] = True
+        self.resizable(False, False)
+        self.has_game_folder_set = False
+
+        # List of questions
+        self.questions = [
+            "What is Snakle Pack Editor?",
+            "What is Snakle?",
+            "How to use this program?",
+            "Should I save or deploy?",
+            "How do I rename my pack?",
+            "I don't see my question here."
+        ]
+
+        self.answers = json.load(open(os.getcwd() + "\\program_data\\answers.json", "r")) # Must add exception checking
+
+        # Adding protocol to modify when exited
+        self.protocol("WM_DELETE_WINDOW", self.handle_exit)
+
+        # Widgets + StrVar
+        self.introduction_label = Label(self, text="Please select a question that you would like an answer to:")
+        self.introduction_label.pack()
+
+        self.question_stringvar = StringVar()
+
+        self.question_optionmenu = ttk.OptionMenu(self, self.question_stringvar, "Select an option...", *self.questions)  # better styling
+        self.question_optionmenu.pack()
+
+        self.answer_field = Text(self, height=11, font="Calibri 13")
+        self.answer_field.pack()
+        self.answer_field.insert("end", "Use the drop-down menu above to select a question.")
+        self.answer_field.config(state="disabled")
+
+        # Buttons
+        self.buttons_frame = Frame(self)
+        self.buttons_frame.pack()
+
+        self.repository_button = Button(self.buttons_frame, text="Open Repository", command=lambda: webbrowser.open_new_tab("https://github.com/R1DF/Snakle-Pack-Editor"))
+        self.repository_button.grid(row=0, column=0)
+
+        self.links_page_button = Button(self.buttons_frame, text="Creator's Links", command=lambda: webbrowser.open_new_tab("https://r1df.github.io/links.html"))
+        self.links_page_button.grid(row=0, column=1)
+
+        # Tracing
+        self.question_stringvar.trace_add("write", lambda x, y, z: self.trace_select())
+
+    def trace_select(self):
+        index_of_answer = self.questions.index(self.question_stringvar.get()) + 1
+        self.answer_field.config(state="normal")
+        self.answer_field.delete(1.0, "end")
+
+        for entry in self.answers[str(index_of_answer)]:
+            self.answer_field.insert("end", entry)
+
+        self.answer_field.config(state="disabled")
+
+
+    def handle_exit(self):
+        self.master.opened_window_parameters["help"] = False
+        self.destroy()
+
