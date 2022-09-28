@@ -1,0 +1,30 @@
+{
+  "1": [
+    "Snakle Pack Editor is a program that allows you to create custom packs for the Python game Snakle.\n",
+    "It has all the basic features that you need, which include adding, removing, and editing words. You\ncan also save ",
+    "and open your packs at any time.\n\n",
+    "You can also directly deploy your pack to add them to your game by locating the game folder. ",
+    "In\nshort, Snakle Pack Editor is just a program that allows anyone to create packs without needing to\nknow JSON."
+  ],
+  "2": [
+    "Snakle is a downloadable Pythonic adaptation of the famous video game made Wordle.\nIt supports the usage of ",
+    "custom packs with the JSON file extension to make the game playable for\nanyone without a necessary internet connection."
+  ],
+  "3": [
+    "Using this program is simple. The commands to manage your pack are all in the right side of the\nwindow - Adding, deleting, ",
+    "editing, saving, and opening. Before your pack can be saved you must\nhave at least 10 words and a specified author, title, and description.\n\n",
+    "To deploy your pack, you can just access the Deploy command in the \"Pack\" menu.\nResetting will simply make the editor start a new pack."
+  ],
+  "4": [
+    "Saving and deploying appear to do the same as they both save the file. The difference is that saving\nwill let you ",
+    "save the file anywhere you want, also making it faster. Deploying, on the other hand,\nshould only be used when you want to ",
+    "transfer your file directly to the folder that contains the\ngame (not its packs!)."
+  ],
+  "5": [
+    "To rename your pack, you should just alter the title and save the pack. You can't set a title if your\npack doesn't meet the save requirements."
+  ],
+  "6": [
+    "Feel free to head to the repository of the game to contact its creator. Alternatively, you can just\ncheck their website's links section ",
+    "to contact them.\nBoth can be accessed with the press of a button below this text area."
+  ]
+}
