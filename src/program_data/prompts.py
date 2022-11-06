@@ -126,7 +126,7 @@ class InfoWindow(Toplevel):
         self.buttons_frame = Frame(self)
         self.buttons_frame.pack()
 
-        self.get_snakle_button = Button(self.buttons_frame, text="Get Snakle", command=lambda: webbrowser.open("https://github.com/R1DF/Snakle"))
+        self.get_snakle_button = Button(self.buttons_frame, text="Get Legacy Snakle", command=lambda: webbrowser.open("https://github.com/R1DF/Legacy-Snakle"))
         self.get_snakle_button.grid(row=0, column=0)
 
         self.open_repository_button = Button(self.buttons_frame, text="Open Repository", command=lambda: webbrowser.open("https://github.com/R1DF/Snakle-Pack-Editor"))
