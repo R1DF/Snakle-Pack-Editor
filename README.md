@@ -1,5 +1,5 @@
 # Snakle Pack Editor
-Snakle Pack Editor is the official tool used to create and edit custom word packs for [Snakle](https://www.github.com/R1DF/Snakle), with features such as:
+Snakle Pack Editor is the official tool used to create and edit custom word packs for [Legacy Snakle](https://www.github.com/R1DF/Legacy-Snakle), with features such as:
 * A very user-friendly and simplistic GUI built with nothing but Tkinter.
 * An ability to add, delete, and edit words in any pack you wish to edit.
 * A history section where you don't need to locate the file in your file system every time.
