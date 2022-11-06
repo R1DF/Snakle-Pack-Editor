@@ -100,7 +100,7 @@ class App(Tk):
         self.buttons_frame.grid(row=0, column=1)
 
         # Entries listbox frame
-        self.entries_intro_label = Label(self.entries_frame, text=f"Words ({self.word_amount}/500):")
+        self.entries_intro_label = Label(self.entries_frame, text=f"Words: {self.word_amount}")
         self.entries_intro_label.pack()
 
         self.listbox_area_entry = Frame(self.entries_frame)  # Due to the scrollbar existing I have to do this
@@ -238,7 +238,7 @@ class App(Tk):
             self.switch_updated_status(False)
 
     def update_word_amount(self):
-        self.entries_intro_label.config(text=f"Words ({self.word_amount}/500):")
+        self.entries_intro_label.config(text=f"Words: {self.word_amount}")
 
     def can_save(self):
         # Getting variables
@@ -396,8 +396,9 @@ class App(Tk):
         self.title("Snakle Pack Editor - Untitled")
 
         # Removing all words
+        self.word_amount = 0
         self.entries_listbox.delete(0, "end")
-        self.entries_intro_label.config(text="Words (0/500):")
+        self.update_word_amount()
 
         # Removing metadata + updating
         self.author_entry.delete(0, "end")
